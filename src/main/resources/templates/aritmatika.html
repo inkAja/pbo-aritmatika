@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Aritmatika</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+    <main class="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+        <header class="mb-8">
+            <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900">Kalkulator Aritmatika</h1>
+            <p class="mt-2 text-slate-500">Hitung operasi dasar dan simpan riwayat perhitungan.</p>
+        </header>
+
+        <!-- Form utama hanya untuk menambah operasi baru. -->
+        <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8">
+            <h2 class="mb-6 text-lg font-semibold text-slate-900">Input Operasi</h2>
+
+            <form th:action="@{/simpan}" th:object="${aritmatika}" method="post">
+                <div class="grid grid-cols-1 items-end gap-4 sm:grid-cols-[1fr_120px_1fr_auto]">
+                    <div>
+                        <label for="bil1" class="mb-2 block text-sm font-medium text-slate-700">Bilangan 1</label>
+                        <input id="bil1" type="number" step="1" min="-2147483648" max="2147483647"
+                               required th:field="*{bil1}" placeholder="Masukkan angka"
+                               class="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        <p th:if="${#fields.hasErrors('bil1')}" th:errors="*{bil1}"
+                           class="mt-1 text-sm text-red-600"></p>
+                    </div>
+
+                    <div>
+                        <label for="operasi" class="mb-2 block text-sm font-medium text-slate-700">Operator</label>
+                        <select id="operasi" th:field="*{operasi}" required
+                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                            <option value="">Pilih</option>
+                            <option th:each="operator : ${operators}" th:value="${operator}"
+                                    th:text="${operator}"></option>
+                        </select>
+                        <p th:if="${#fields.hasErrors('operasi')}" th:errors="*{operasi}"
+                           class="mt-1 text-sm text-red-600"></p>
+                    </div>
+
+                    <div>
+                        <label for="bil2" class="mb-2 block text-sm font-medium text-slate-700">Bilangan 2</label>
+                        <input id="bil2" type="number" step="1" min="-2147483648" max="2147483647"
+                               required th:field="*{bil2}" placeholder="Masukkan angka"
+                               class="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                        <p th:if="${#fields.hasErrors('bil2')}" th:errors="*{bil2}"
+                           class="mt-1 text-sm text-red-600"></p>
+                    </div>
+
+                    <button type="submit"
+                            class="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100">
+                        = Hitung
+                    </button>
+                </div>
+
+                <p th:if="${#fields.hasGlobalErrors()}" th:each="err : ${#fields.globalErrors()}"
+                   th:text="${err}" class="mt-4 text-sm text-red-600"></p>
+                <p class="mt-3 text-xs text-slate-500">Input harus berupa bilangan bulat (integer).</p>
+            </form>
+
+            <div th:if="${hasilTerakhir != null}"
+                 class="mt-6 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4">
+                <p class="text-sm font-medium text-blue-700">Hasil perhitungan</p>
+                <p class="mt-1 text-2xl font-bold text-blue-900" th:text="${hasilTerakhir}">0</p>
+            </div>
+
+            <p th:if="${pesan != null}" th:text="${pesan}"
+               class="mt-4 text-sm font-medium text-emerald-700"></p>
+            <p th:if="${pesanError != null}" th:text="${pesanError}"
+               class="mt-4 text-sm font-medium text-red-600"></p>
+        </section>
+
+        <!-- Edit dilakukan langsung pada kolom di baris riwayat yang dipilih. -->
+        <section class="mt-8 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+            <div class="border-b border-slate-200 px-6 py-5 sm:px-8">
+                <h2 class="text-lg font-semibold text-slate-900">Riwayat Operasi</h2>
+            </div>
+
+            <p th:if="${editError != null}" th:text="${editError}"
+               class="mx-6 mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700"></p>
+
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[700px] text-left text-sm">
+                    <thead class="bg-blue-600 text-xs uppercase tracking-wide text-white">
+                        <tr>
+                            <th class="px-6 py-4 font-semibold">Bilangan 1</th>
+                            <th class="px-6 py-4 font-semibold">Operator</th>
+                            <th class="px-6 py-4 font-semibold">Bilangan 2</th>
+                            <th class="px-6 py-4 font-semibold">Result</th>
+                            <th class="px-6 py-4 text-center font-semibold">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <tr th:each="item : ${riwayat}" class="hover:bg-slate-50">
+                            <!-- Kolom bilangan 1: teks biasa atau input saat baris diedit. -->
+                            <td class="px-6 py-4 font-medium">
+                                <input th:if="${editId == item.idAritmatika}" type="number" name="bil1"
+                                       step="1" min="-2147483648" max="2147483647" required
+                                       th:value="${editData.bil1}"
+                                       th:attr="form=${'edit-form-' + item.idAritmatika}"
+                                       class="w-28 rounded-lg border border-blue-300 px-2 py-2 outline-none focus:ring-2 focus:ring-blue-100">
+                                <span th:unless="${editId == item.idAritmatika}" th:text="${item.bil1}">10</span>
+                            </td>
+
+                            <!-- Kolom operator: dropdown hanya muncul di baris edit. -->
+                            <td class="px-6 py-4">
+                                <select th:if="${editId == item.idAritmatika}" name="operasi"
+                                        th:attr="form=${'edit-form-' + item.idAritmatika}"
+                                        class="w-20 rounded-lg border border-blue-300 bg-white px-2 py-2 outline-none focus:ring-2 focus:ring-blue-100">
+                                    <option th:each="operator : ${operators}" th:value="${operator}"
+                                            th:text="${operator}" th:selected="${operator == editData.operasi}"></option>
+                                </select>
+                                <span th:unless="${editId == item.idAritmatika}" th:text="${item.operasi}">+</span>
+                            </td>
+
+                            <!-- Kolom bilangan 2. -->
+                            <td class="px-6 py-4 font-medium">
+                                <input th:if="${editId == item.idAritmatika}" type="number" name="bil2"
+                                       step="1" min="-2147483648" max="2147483647" required
+                                       th:value="${editData.bil2}"
+                                       th:attr="form=${'edit-form-' + item.idAritmatika}"
+                                       class="w-28 rounded-lg border border-blue-300 px-2 py-2 outline-none focus:ring-2 focus:ring-blue-100">
+                                <span th:unless="${editId == item.idAritmatika}" th:text="${item.bil2}">5</span>
+                            </td>
+
+                            <!-- Result dihitung oleh controller dan tidak disimpan dalam database. -->
+                            <td class="px-6 py-4 font-semibold text-slate-900"
+                                th:text="${item.hasil}">15</td>
+
+                            <td class="px-6 py-4">
+                                <div th:if="${editId == item.idAritmatika}"
+                                     class="flex items-center justify-center gap-3">
+                                    <form th:id="${'edit-form-' + item.idAritmatika}"
+                                          th:action="@{/edit/{id}(id=${item.idAritmatika})}" method="post"></form>
+                                    <button type="submit" th:attr="form=${'edit-form-' + item.idAritmatika}"
+                                            class="font-medium text-emerald-600 hover:text-emerald-800">Simpan</button>
+                                    <a th:href="@{/}" class="font-medium text-slate-500 hover:text-slate-700">Batal</a>
+                                </div>
+
+                                <div th:unless="${editId == item.idAritmatika}"
+                                     class="flex items-center justify-center gap-3">
+                                    <a th:href="@{/(edit=${item.idAritmatika})}"
+                                       class="font-medium text-blue-600 hover:text-blue-800">Edit</a>
+                                    <form th:action="@{/hapus/{id}(id=${item.idAritmatika})}" method="post"
+                                          onsubmit="return confirm('Hapus riwayat operasi ini?')">
+                                        <button type="submit"
+                                                class="font-medium text-red-600 hover:text-red-800">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr th:if="${#lists.isEmpty(riwayat)}">
+                            <td colspan="5" class="px-6 py-10 text-center text-slate-500">
+                                Belum ada riwayat operasi.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <p class="mt-6 text-center text-xs text-slate-400">Kalkulator Aritmatika · Spring Boot &amp; PostgreSQL</p>
+    </main>
+</body>
+</html>
